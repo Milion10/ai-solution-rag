@@ -1,0 +1,186 @@
+// Schema Prisma pour AI Solution MVP
+// Inspiré d'Achromatic mais simplifié pour le besoin spécifique
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ===== ENUMS =====
+
+enum Role {
+  ADMIN  @map("admin")
+  MEMBER @map("member")
+}
+
+enum DocumentScope {
+  ORGANIZATION @map("organization") // Documents globaux (admin seul modifie)
+  USER         @map("user")         // Documents personnels (user propriétaire seul modifie)
+}
+
+// ===== AUTH MODELS =====
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime? @map("email_verified")
+  password      String? // Hashed password for credentials login
+  image         String?
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  accounts      Account[]
+  sessions      Session[]
+  memberships   Membership[]
+  documents     UserDocument[] // Documents personnels
+  conversations Conversation[]
+
+  @@map("users")
+}
+
+model Account {
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String  @map("provider_account_id")
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  sessionToken String   @unique @map("session_token")
+  userId       String   @map("user_id")
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@id([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ===== ORGANIZATIONS =====
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique // URL-friendly identifier
+  email     String?
+  logo      String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  memberships Membership[]
+  documents   OrganizationDocument[]
+
+  @@map("organizations")
+}
+
+model Membership {
+  id             String   @id @default(cuid())
+  userId         String   @map("user_id")
+  organizationId String   @map("organization_id")
+  role           Role     @default(MEMBER)
+  isOwner        Boolean  @default(false) @map("is_owner") // Owner = créateur organisation
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId])
+  @@map("memberships")
+}
+
+// ===== DOCUMENTS =====
+
+// Documents globaux de l'organisation (admin seul gère)
+model OrganizationDocument {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  filename       String
+  filePath       String   @map("file_path")
+  fileSize       Int      @map("file_size")
+  mimeType       String   @map("mime_type")
+  isIndexed      Boolean  @default(false) @map("is_indexed")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("organization_documents")
+}
+
+// Documents personnels des users
+model UserDocument {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  filename  String
+  filePath  String   @map("file_path")
+  fileSize  Int      @map("file_size")
+  mimeType  String   @map("mime_type")
+  isIndexed Boolean  @default(false) @map("is_indexed")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_documents")
+}
+
+// ===== CONVERSATIONS =====
+
+model Conversation {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  title     String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages Message[]
+
+  @@map("conversations")
+}
+
+model Message {
+  id             String   @id @default(cuid())
+  conversationId String   @map("conversation_id")
+  role           String // "user" or "assistant"
+  content        String   @db.Text
+  sources        Json? // Sources citées par l'IA
+  confidence     Float? // Score de confiance
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@map("messages")
+}

@@ -1,0 +1,179 @@
+'use client';
+
+import { useState, useRef, useEffect } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card } from '@/components/ui/card';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Send, Loader2, FileText } from 'lucide-react';
+
+interface Source {
+  filename: string;
+  chunk_index: number;
+  similarity: number;
+}
+
+interface Message {
+  role: 'user' | 'assistant';
+  content: string;
+  sources?: Source[];
+  confidence?: number;
+}
+
+export default function Chat() {
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [input, setInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim() || isLoading) return;
+
+    const userMessage: Message = {
+      role: 'user',
+      content: input.trim(),
+    };
+
+    setMessages((prev) => [...prev, userMessage]);
+    setInput('');
+    setIsLoading(true);
+
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          question: userMessage.content,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Erreur lors de la requête');
+      }
+
+      const data = await response.json();
+
+      const assistantMessage: Message = {
+        role: 'assistant',
+        content: data.answer,
+        sources: data.sources,
+        confidence: data.confidence,
+      };
+
+      setMessages((prev) => [...prev, assistantMessage]);
+    } catch (error) {
+      console.error('Erreur:', error);
+      const errorMessage: Message = {
+        role: 'assistant',
+        content: "Désolé, une erreur s'est produite. Vérifiez que le backend est démarré.",
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="mx-auto flex h-full max-w-4xl flex-col px-4 py-6">
+      {/* Messages */}
+      <ScrollArea className="flex-1 pr-4" ref={scrollRef}>
+        <div className="space-y-4">
+          {messages.length === 0 && (
+            <div className="flex h-[60vh] items-center justify-center text-center">
+              <div>
+                <h2 className="mb-2 text-2xl font-bold text-gray-800">
+                  Bonjour ! 👋
+                </h2>
+                <p className="text-gray-600">
+                  Posez-moi des questions sur vos documents.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {messages.map((message, index) => (
+            <div
+              key={index}
+              className={`flex ${
+                message.role === 'user' ? 'justify-end' : 'justify-start'
+              }`}
+            >
+              <Card
+                className={`max-w-[80%] p-4 ${
+                  message.role === 'user'
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-white'
+                }`}
+              >
+                <p className="whitespace-pre-wrap">{message.content}</p>
+
+                {/* Sources */}
+                {message.sources && message.sources.length > 0 && (
+                  <div className="mt-3 border-t pt-3">
+                    <p className="mb-2 text-xs font-semibold text-gray-600">
+                      📚 Sources ({message.confidence?.toFixed(1)}% confiance)
+                    </p>
+                    <div className="space-y-1">
+                      {message.sources.map((source, idx) => (
+                        <div
+                          key={idx}
+                          className="flex items-center gap-2 text-xs text-gray-600"
+                        >
+                          <FileText className="h-3 w-3" />
+                          <span>
+                            {source.filename} (chunk {source.chunk_index},{' '}
+                            {(source.similarity * 100).toFixed(1)}% similaire)
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </Card>
+            </div>
+          ))}
+
+          {isLoading && (
+            <div className="flex justify-start">
+              <Card className="max-w-[80%] bg-white p-4">
+                <div className="flex items-center gap-2 text-gray-600">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Recherche dans les documents...</span>
+                </div>
+              </Card>
+            </div>
+          )}
+        </div>
+      </ScrollArea>
+
+      {/* Input */}
+      <form onSubmit={handleSubmit} className="mt-4">
+        <div className="flex gap-2">
+          <Input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="Posez votre question..."
+            disabled={isLoading}
+            className="flex-1"
+          />
+          <Button type="submit" disabled={isLoading || !input.trim()}>
+            {isLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Send className="h-4 w-4" />
+            )}
+          </Button>
+        </div>
+      </form>
+    </div>
+  );
+}
