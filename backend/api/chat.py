@@ -71,50 +71,54 @@ async def chat(request: ChatRequest):
         chunks = vector_store.search_similar(
             query_text=request.user_query,
             top_k=request.top_k,
-            similarity_threshold=request.similarity_threshold,
+            similarity_threshold=0.0,  # Récupérer tous les chunks pour filtrer ensuite
             user_id=request.user_id,
             organization_id=request.organization_id
         )
         
-        if not chunks:
-            logger.warning("Aucun chunk trouvé pour la requête")
-            return ChatResponse(
-                query=request.user_query,
-                answer="Je n'ai pas trouvé d'informations pertinentes dans les documents pour répondre à votre question. Pourriez-vous reformuler ou être plus précis ?",
-                sources=[],
-                confidence=0.0,
-                context_used=0,
-                chunks_found=0
-            )
+        # Filtrer les chunks par seuil de similarité pour déterminer la pertinence
+        # Seuil à 0.4 (40%) : en dessous, la similarité est trop faible pour être pertinente
+        RELEVANCE_THRESHOLD = 0.4
+        relevant_chunks = [chunk for chunk in chunks if chunk['similarity'] >= RELEVANCE_THRESHOLD]
         
-        logger.info(f"  📚 {len(chunks)} chunks récupérés")
-        
-        # 2. Génération RAG
+        # 2. Vérifier la disponibilité du LLM
         llm = get_llm_generator()
-        
-        # Vérifier si Ollama est disponible
         if not llm.check_health():
             raise HTTPException(
                 status_code=503,
                 detail="Le service LLM (Ollama) n'est pas disponible. Veuillez vérifier qu'Ollama est installé et démarré."
             )
         
-        rag_result = llm.generate_rag_response(
-            query=request.user_query,
-            context_chunks=chunks,
-            max_context_length=3000
-        )
+        # 3. Décider du mode : RAG (documents pertinents) ou Général (connaissance du modèle)
+        if relevant_chunks:
+            # MODE RAG : Documents pertinents trouvés
+            logger.info(f"  📚 Mode RAG - {len(relevant_chunks)} chunks pertinents (score > {RELEVANCE_THRESHOLD})")
+            
+            rag_result = llm.generate_rag_response(
+                query=request.user_query,
+                context_chunks=relevant_chunks,
+                max_context_length=3000
+            )
+            
+        else:
+            # MODE GÉNÉRAL : Pas de documents pertinents, utiliser la connaissance du modèle
+            logger.info(f"  🧠 Mode Général - Aucun document pertinent (seuil: {RELEVANCE_THRESHOLD})")
+            
+            # Générer une réponse avec la connaissance générale du modèle
+            rag_result = llm.generate_general_response(
+                query=request.user_query
+            )
         
-        logger.info(f"  ✅ Réponse générée (confidence: {rag_result['confidence']}%)")
+        logger.info(f"  ✅ Réponse générée (confidence: {rag_result.get('confidence', 100)}%)")
         
-        # 3. Formater la réponse
+        # 4. Formater la réponse
         return ChatResponse(
             query=request.user_query,
             answer=rag_result["answer"],
-            sources=[Source(**s) for s in rag_result["sources"]],
-            confidence=rag_result["confidence"],
-            context_used=rag_result["context_used"],
-            chunks_found=len(chunks)
+            sources=[Source(**s) for s in rag_result.get("sources", [])],
+            confidence=rag_result.get("confidence", 100),
+            context_used=rag_result.get("context_used", 0),
+            chunks_found=len(relevant_chunks) if relevant_chunks else 0
         )
     
     except HTTPException:

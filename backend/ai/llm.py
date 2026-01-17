@@ -223,6 +223,59 @@ Réponds à la question en te basant sur le contexte ci-dessus. Structure ta ré
                 "confidence": 0.0,
                 "context_used": 0
             }
+    
+    
+    def generate_general_response(
+        self,
+        query: str
+    ) -> Dict:
+        """
+        Génère une réponse avec la connaissance générale du modèle (sans RAG)
+        Utilisé quand aucun document pertinent n'est trouvé
+        
+        Args:
+            query: Question utilisateur
+        
+        Returns:
+            Dict avec 'answer', 'sources', 'confidence'
+        """
+        system_prompt = """Tu es un assistant IA intelligent et serviable.
+
+Règles importantes:
+- Réponds avec ta connaissance générale
+- Si la question nécessite des informations en temps réel (météo, actualités récentes, bourse), 
+  explique clairement que tu n'as pas accès à ces données
+- Si tu n'es pas sûr d'une information, dis-le honnêtement
+- Sois précis, concis et structuré dans tes réponses
+- Utilise un ton professionnel mais accessible"""
+
+        user_prompt = f"""Question:
+{query}
+
+Réponds à cette question avec ta connaissance générale."""
+
+        try:
+            answer = self.generate(
+                prompt=user_prompt,
+                system_prompt=system_prompt,
+                temperature=0.7  # Température normale pour réponses générales
+            )
+            
+            return {
+                "answer": answer.strip(),
+                "sources": [],  # Pas de sources pour la connaissance générale
+                "confidence": 80.0,  # Confiance modérée (pas de docs pour vérifier)
+                "context_used": 0
+            }
+        
+        except Exception as e:
+            logger.error(f"❌ Erreur génération réponse générale: {e}")
+            return {
+                "answer": f"Erreur lors de la génération de la réponse: {str(e)}",
+                "sources": [],
+                "confidence": 0.0,
+                "context_used": 0
+            }
 
 
 # Instance globale
