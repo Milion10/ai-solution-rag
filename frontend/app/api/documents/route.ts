@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
     })
     
     // Construire l'URL avec les query parameters
-    const url = new URL('http://localhost:8000/api/documents/upload')
+    const url = new URL('http://localhost:8001/api/documents/upload')
     
     if (isOrganizationDoc && session.user.organizationId) {
       url.searchParams.append('organization_id', session.user.organizationId)
@@ -95,7 +95,7 @@ export async function GET() {
     console.log('[GET DOCS] Query params:', params.toString())
     
     const response = await fetch(
-      `http://localhost:8000/api/documents/documents?${params.toString()}`
+      `http://localhost:8001/api/documents/documents?${params.toString()}`
     )
 
     const data = await response.json()

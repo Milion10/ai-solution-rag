@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Forward to Python backend with user_id and organization_id
-    const response = await fetch('http://localhost:8000/api/chat', {
+    const response = await fetch('http://localhost:8001/api/chat', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

@@ -1,8 +1,9 @@
 import ChatInterface from '@/components/chat/ChatInterface';
 import { auth } from '@/lib/auth';
 import { redirect } from 'next/navigation';
-import { User } from 'lucide-react';
+import { User, Settings } from 'lucide-react';
 import SignOutButton from '@/components/auth/SignOutButton';
+import Link from 'next/link';
 
 export default async function ChatPage() {
   const session = await auth();
@@ -38,6 +39,15 @@ export default async function ChatPage() {
                 </span>
               )}
             </div>
+            {session.user.role === "ADMIN" && (
+              <Link 
+                href="/dashboard"
+                className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-neutral-700 hover:text-neutral-900 dark:text-neutral-300 dark:hover:text-neutral-100 rounded-md hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+              >
+                <Settings className="h-4 w-4" />
+                Dashboard
+              </Link>
+            )}
             <SignOutButton />
           </div>
         </div>

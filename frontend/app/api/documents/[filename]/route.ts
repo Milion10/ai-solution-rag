@@ -27,7 +27,7 @@ export async function DELETE(
     }
     
     const response = await fetch(
-      `http://localhost:8000/api/documents/${filename}?${params_query.toString()}`,
+      `http://localhost:8001/api/documents/${filename}?${params_query.toString()}`,
       { method: 'DELETE' }
     )
 

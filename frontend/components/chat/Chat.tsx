@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Send, Loader2, FileText } from 'lucide-react';
+import { Send, Loader2, FileText, Paperclip, X } from 'lucide-react';
 
 interface Source {
   filename: string;
@@ -20,17 +20,77 @@ interface Message {
   confidence?: number;
 }
 
-export default function Chat() {
+interface ChatProps {
+  userRole?: string;
+  onUploadComplete?: () => void;
+}
+
+export default function Chat({ userRole, onUploadComplete }: ChatProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.type === 'application/pdf') {
+        setSelectedFile(file);
+      } else {
+        alert('Seuls les fichiers PDF sont acceptés');
+      }
+    }
+  };
+
+  const handleUploadFile = async () => {
+    if (!selectedFile) return;
+
+    setIsUploading(true);
+    const formData = new FormData();
+    formData.append('file', selectedFile);
+    formData.append('isOrganizationDoc', 'false'); // Toujours privé pour les uploads via chat
+
+    try {
+      const response = await fetch('/api/documents', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('Upload failed');
+      }
+
+      // Notification de succès
+      onUploadComplete?.();
+      setSelectedFile(null);
+      
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    } catch (error) {
+      console.error('Erreur upload:', error);
+      alert("Échec de l'upload du document");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleRemoveFile = () => {
+    setSelectedFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -157,7 +217,52 @@ export default function Chat() {
 
       {/* Input */}
       <form onSubmit={handleSubmit} className="mt-4">
+        {/* File preview */}
+        {selectedFile && (
+          <div className="mb-2 flex items-center gap-2 rounded-lg border bg-neutral-50 p-3 dark:bg-neutral-900">
+            <FileText className="h-4 w-4 text-blue-500" />
+            <span className="flex-1 truncate text-sm">{selectedFile.name}</span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleRemoveFile}
+              className="h-6 w-6 p-0"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+            <Button
+              type="button"
+              onClick={handleUploadFile}
+              disabled={isUploading}
+              size="sm"
+            >
+              {isUploading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                'Uploader'
+              )}
+            </Button>
+          </div>
+        )}
+
         <div className="flex gap-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".pdf"
+            onChange={handleFileSelect}
+            className="hidden"
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isLoading || isUploading}
+          >
+            <Paperclip className="h-4 w-4" />
+          </Button>
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}

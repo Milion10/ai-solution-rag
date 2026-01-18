@@ -16,13 +16,17 @@ interface UploadedFile {
 interface DocumentUploadProps {
   onUploadComplete?: () => void
   userRole?: string
+  forceGlobal?: boolean  // Dashboard admin: toujours global
+  forcePrivate?: boolean // Chat: toujours privé
 }
 
-export default function DocumentUpload({ onUploadComplete, userRole }: DocumentUploadProps) {
+export default function DocumentUpload({ onUploadComplete, userRole, forceGlobal = false, forcePrivate = false }: DocumentUploadProps) {
   const [files, setFiles] = useState<UploadedFile[]>([])
   const [isOrganizationDoc, setIsOrganizationDoc] = useState(false)
   
   const isAdmin = userRole === "ADMIN"
+  // Si forceGlobal ou forcePrivate, on n'a pas de choix
+  const hasChoice = !forceGlobal && !forcePrivate && isAdmin
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     const newFiles = acceptedFiles.map(file => ({
@@ -32,13 +36,13 @@ export default function DocumentUpload({ onUploadComplete, userRole }: DocumentU
     }))
     setFiles(prev => [...prev, ...newFiles])
     
-    // Auto-upload pour les non-admins, manuel pour les admins (ils doivent choisir le scope)
-    if (!isAdmin) {
+    // Auto-upload si pas de choix (forceGlobal, forcePrivate, ou non-admin)
+    if (!hasChoice) {
       newFiles.forEach((uploadFile, index) => {
         uploadDocument(uploadFile, files.length + index)
       })
     }
-  }, [files.length, isAdmin])
+  }, [files.length, hasChoice])
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -55,12 +59,18 @@ export default function DocumentUpload({ onUploadComplete, userRole }: DocumentU
       return updated
     })
 
-    // Capturer la valeur actuelle de isOrganizationDoc au moment de l'upload
-    const shouldBeOrgDoc = isAdmin && isOrganizationDoc
+    // Déterminer si le document doit être global
+    let shouldBeOrgDoc = false
+    if (forceGlobal) {
+      shouldBeOrgDoc = true  // Dashboard admin: toujours global
+    } else if (forcePrivate) {
+      shouldBeOrgDoc = false // Chat: toujours privé
+    } else {
+      shouldBeOrgDoc = isAdmin && isOrganizationDoc // Choix manuel (ancien comportement)
+    }
     
     const formData = new FormData()
     formData.append('file', uploadFile.file)
-    // USER: always personal docs, ADMIN: can choose
     formData.append('isOrganizationDoc', shouldBeOrgDoc.toString())
     
     console.log('[DocumentUpload] Uploading:', uploadFile.file.name, 'isOrganizationDoc:', shouldBeOrgDoc)
@@ -115,8 +125,21 @@ export default function DocumentUpload({ onUploadComplete, userRole }: DocumentU
 
   return (
     <div className="space-y-4">
-      {/* Toggle pour ADMIN uniquement */}
-      {isAdmin && (
+      {/* Affichage du mode actuel */}
+      {forceGlobal && (
+        <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg text-sm text-green-900 dark:text-green-100">
+          🌍 Documents globaux (accessibles à toute l'organisation)
+        </div>
+      )}
+      
+      {forcePrivate && (
+        <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-sm text-blue-900 dark:text-blue-100">
+          👤 Documents personnels et privés
+        </div>
+      )}
+      
+      {/* Toggle pour ADMIN uniquement si pas de mode forcé */}
+      {hasChoice && (
         <div className="space-y-3">
           <div className="flex items-center gap-3 p-3 bg-neutral-50 dark:bg-neutral-900 rounded-lg">
             <input
@@ -140,12 +163,6 @@ export default function DocumentUpload({ onUploadComplete, userRole }: DocumentU
               Uploader {files.filter(f => f.status === 'pending').length} document(s)
             </Button>
           )}
-        </div>
-      )}
-      
-      {!isAdmin && (
-        <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-sm text-blue-900 dark:text-blue-100">
-          👤 Vos documents sont personnels et privés
         </div>
       )}
 
