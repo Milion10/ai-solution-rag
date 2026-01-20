@@ -176,7 +176,7 @@ model Message {
   conversationId String   @map("conversation_id")
   role           String // "user" or "assistant"
   content        String   @db.Text
-  sources        Json? // Sources citées par l'IA
+  sources        String? // Sources citées par l'IA (JSON stringified)
   confidence     Float? // Score de confiance
   createdAt      DateTime @default(now()) @map("created_at")
 

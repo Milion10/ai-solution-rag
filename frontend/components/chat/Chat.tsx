@@ -23,9 +23,11 @@ interface Message {
 interface ChatProps {
   userRole?: string;
   onUploadComplete?: () => void;
+  conversationId?: string | null;
+  onConversationCreated?: (conversationId: string) => void;
 }
 
-export default function Chat({ userRole, onUploadComplete }: ChatProps) {
+export default function Chat({ userRole, onUploadComplete, conversationId, onConversationCreated }: ChatProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -34,11 +36,66 @@ export default function Chat({ userRole, onUploadComplete }: ChatProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Charger la conversation quand conversationId change
+  useEffect(() => {
+    console.log('[Chat] conversationId changé:', conversationId)
+    if (conversationId) {
+      console.log('[Chat] Chargement conversation:', conversationId)
+      loadConversation(conversationId)
+    } else {
+      // Nouvelle conversation
+      console.log('[Chat] Nouvelle conversation - messages vides')
+      setMessages([])
+    }
+  }, [conversationId])
+
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
+
+  const loadConversation = async (id: string) => {
+    try {
+      const response = await fetch(`/api/conversations/${id}`)
+      if (response.ok) {
+        const data = await response.json()
+        setMessages(data.messages || [])
+      }
+    } catch (error) {
+      console.error('Erreur chargement conversation:', error)
+    }
+  }
+
+  const saveMessage = async (userMsg: Message, assistantMsg: Message) => {
+    try {
+      console.log('[Chat] Sauvegarde conversation, ID:', conversationId)
+      const response = await fetch('/api/conversations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          conversation_id: conversationId,
+          user_message: userMsg.content,
+          assistant_message: assistantMsg.content,
+          sources: assistantMsg.sources,
+        }),
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        console.log('[Chat] Conversation sauvegardée:', data)
+        // Si c'était une nouvelle conversation, mettre à jour l'ID
+        if (!conversationId && data.conversation_id) {
+          console.log('[Chat] Nouvelle conversation créée avec ID:', data.conversation_id)
+          onConversationCreated?.(data.conversation_id)
+        }
+      } else {
+        console.error('[Chat] Erreur sauvegarde:', response.status)
+      }
+    } catch (error) {
+      console.error('Erreur sauvegarde message:', error)
+    }
+  }
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -117,7 +174,9 @@ export default function Chat({ userRole, onUploadComplete }: ChatProps) {
       });
 
       if (!response.ok) {
-        throw new Error('Erreur lors de la requête');
+        const errorData = await response.json();
+        console.error('Erreur API chat:', response.status, errorData);
+        throw new Error(errorData.error || 'Erreur lors de la requête');
       }
 
       const data = await response.json();
@@ -130,6 +189,9 @@ export default function Chat({ userRole, onUploadComplete }: ChatProps) {
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
+      
+      // Sauvegarder la conversation
+      await saveMessage(userMessage, assistantMessage);
     } catch (error) {
       console.error('Erreur:', error);
       const errorMessage: Message = {
