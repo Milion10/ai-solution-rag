@@ -29,6 +29,9 @@ pypdf==4.0.1
 python-docx==1.1.0
 markdown==3.5.2
 
+# Groq API (pour développement rapide)
+groq>=1.0.0
+
 # Utils
 python-dotenv==1.0.0
 httpx==0.26.0

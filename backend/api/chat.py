@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 from typing import List, Dict, Optional
 import logging
 from ai.vector_store import get_vector_store
-from ai.llm import get_llm_generator
+from ai.llm_factory import get_llm_generator
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -19,6 +19,7 @@ class ChatRequest(BaseModel):
     question: str = Field(None, description="Question de l'utilisateur", min_length=1)
     user_id: Optional[str] = Field(None, description="ID de l'utilisateur pour filtrer les documents")
     organization_id: Optional[str] = Field(None, description="ID de l'organisation pour filtrer les documents")
+    conversation_id: Optional[str] = Field(None, description="ID de la conversation pour documents privés")
     top_k: int = Field(default=5, description="Nombre de chunks à récupérer", ge=1, le=20)
     similarity_threshold: float = Field(default=0.3, description="Seuil de similarité (0-1)", ge=0.0, le=1.0)
     temperature: Optional[float] = Field(default=None, description="Température LLM (0-1)", ge=0.0, le=1.0)
@@ -64,17 +65,21 @@ async def chat(request: ChatRequest):
         ChatResponse avec answer, sources, confidence
     """
     logger.info(f"💬 Chat request: '{request.user_query[:50]}...'")
+    logger.info(f"   🔑 user_id: {request.user_id}, org_id: {request.organization_id}, conv_id: {request.conversation_id}")
     
     try:
         # 1. Recherche vectorielle (avec filtrage par user_id et organization_id si fourni)
         vector_store = get_vector_store()
+        logger.info(f"   🔍 Recherche avec conversation_id={request.conversation_id}")
         chunks = vector_store.search_similar(
             query_text=request.user_query,
             top_k=request.top_k,
             similarity_threshold=0.0,  # Récupérer tous les chunks pour filtrer ensuite
             user_id=request.user_id,
-            organization_id=request.organization_id
+            organization_id=request.organization_id,
+            conversation_id=request.conversation_id
         )
+        logger.info(f"   📦 {len(chunks)} chunks trouvés")
         
         # Filtrer les chunks par seuil de similarité pour déterminer la pertinence
         # Seuil à 0.4 (40%) : en dessous, la similarité est trop faible pour être pertinente

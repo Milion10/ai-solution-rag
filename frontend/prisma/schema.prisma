@@ -38,7 +38,7 @@ model User {
   accounts      Account[]
   sessions      Session[]
   memberships   Membership[]
-  documents     UserDocument[] // Documents personnels
+  documents     Document[] // Documents personnels ET globaux
   conversations Conversation[]
 
   @@map("users")
@@ -100,7 +100,7 @@ model Organization {
 
   // Relations
   memberships Membership[]
-  documents   OrganizationDocument[]
+  documents   Document[]
 
   @@map("organizations")
 }
@@ -122,38 +122,29 @@ model Membership {
 
 // ===== DOCUMENTS =====
 
-// Documents globaux de l'organisation (admin seul gère)
-model OrganizationDocument {
-  id             String   @id @default(cuid())
-  organizationId String   @map("organization_id")
-  filename       String
-  filePath       String   @map("file_path")
-  fileSize       Int      @map("file_size")
-  mimeType       String   @map("mime_type")
-  isIndexed      Boolean  @default(false) @map("is_indexed")
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+// Table documents unifiée (utilisée par backend Python et frontend)
+// Correspond à la table créée par backend/migrations/add_backend_tables.sql
+model Document {
+  id              String   @id @default(uuid()) @db.Uuid
+  filename        String   @db.VarChar(255)
+  fileType        String   @map("file_type") @db.VarChar(50)
+  fileSize        Int      @map("file_size")
+  filePath        String   @map("file_path") @db.Text
+  scope           String   @db.VarChar(50) @default("user")
+  userId          String?  @map("user_id")
+  organizationId  String?  @map("organization_id")
+  conversationId  String?  @map("conversation_id") // Document lié à une conversation spécifique
+  uploadedAt      DateTime @default(now()) @map("uploaded_at")
+  isIndexed       Boolean  @default(false) @map("is_indexed")
+  indexingStatus  String   @default("pending") @map("indexing_status") @db.VarChar(50)
+  createdAt       DateTime @default(now()) @map("created_at")
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  // Relations optionnelles
+  user         User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  conversation Conversation? @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
-  @@map("organization_documents")
-}
-
-// Documents personnels des users
-model UserDocument {
-  id        String   @id @default(cuid())
-  userId    String   @map("user_id")
-  filename  String
-  filePath  String   @map("file_path")
-  fileSize  Int      @map("file_size")
-  mimeType  String   @map("mime_type")
-  isIndexed Boolean  @default(false) @map("is_indexed")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("user_documents")
+  @@map("documents")
 }
 
 // ===== CONVERSATIONS =====
@@ -165,8 +156,9 @@ model Conversation {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  messages Message[]
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages  Message[]
+  documents Document[] // Documents attachés à cette conversation
 
   @@map("conversations")
 }
@@ -176,6 +168,7 @@ model Message {
   conversationId String   @map("conversation_id")
   role           String // "user" or "assistant"
   content        String   @db.Text
+  attachments    String? // Fichiers joints au message (JSON array de noms de fichiers)
   sources        String? // Sources citées par l'IA (JSON stringified)
   confidence     Float? // Score de confiance
   createdAt      DateTime @default(now()) @map("created_at")

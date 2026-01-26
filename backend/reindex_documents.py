@@ -30,14 +30,16 @@ def reindex_documents():
             print(f"\n🔄 Indexation de {filename}...")
             
             # Vérifier que le fichier existe
-            if not Path(file_path).exists():
-                print(f"❌ Fichier introuvable: {file_path}")
+            # Le file_path est relatif au dossier backend
+            full_path = Path(__file__).parent / file_path
+            if not full_path.exists():
+                print(f"❌ Fichier introuvable: {full_path}")
                 continue
             
             # Lire le contenu du fichier
             try:
                 import pypdf
-                with open(file_path, 'rb') as f:
+                with open(full_path, 'rb') as f:
                     pdf_reader = pypdf.PdfReader(f)
                     text_content = ""
                     for page in pdf_reader.pages:
@@ -52,9 +54,9 @@ def reindex_documents():
                 result = vector_store.store_document(
                     filename=filename,
                     content=text_content,
-                    file_path=file_path,
+                    file_path=str(full_path),
                     file_type="application/pdf",
-                    file_size=Path(file_path).stat().st_size,
+                    file_size=full_path.stat().st_size,
                     user_id=None  # Ou récupérer le user_id de la DB si nécessaire
                 )
                 

@@ -39,6 +39,7 @@ export async function GET(
     const messages = conversation.messages.map((msg) => ({
       role: msg.role as 'user' | 'assistant',
       content: msg.content,
+      attachments: msg.attachments ? JSON.parse(msg.attachments) : undefined,
       sources: msg.sources ? JSON.parse(msg.sources) : undefined,
     }));
 

@@ -35,7 +35,8 @@ class VectorStore:
         page_count: int = None,
         scope: str = "admin",
         user_id: str = None,
-        organization_id: str = None
+        organization_id: str = None,
+        conversation_id: str = None
     ) -> str:
         """
         Stocke un document et génère ses chunks + embeddings
@@ -61,17 +62,17 @@ class VectorStore:
         try:
             with SessionLocal() as db:
                 # 1. Insérer le document
+
                 insert_doc_query = text("""
                     INSERT INTO documents (
                         id, filename, file_type, file_size, file_path, 
-                        scope, user_id, organization_id, uploaded_at, is_indexed, indexing_status
+                        scope, user_id, organization_id, conversation_id, uploaded_at, is_indexed, indexing_status
                     )
                     VALUES (
                         :id, :filename, :file_type, :file_size, :file_path,
-                        :scope, :user_id, :organization_id, CURRENT_TIMESTAMP, false, 'processing'
+                        :scope, :user_id, :organization_id, :conversation_id, CURRENT_TIMESTAMP, false, 'processing'
                     )
                 """)
-                
                 db.execute(insert_doc_query, {
                     "id": document_id,
                     "filename": filename,
@@ -80,11 +81,11 @@ class VectorStore:
                     "file_path": file_path,
                     "scope": scope,
                     "user_id": user_id,
-                    "organization_id": organization_id
+                    "organization_id": organization_id,
+                    "conversation_id": conversation_id
                 })
                 db.commit()
-                
-                logger.info(f"  ✅ Document enregistré en DB")
+                logger.info(f"  ✅ Document enregistré en DB (conversation_id={conversation_id})")
                 
                 # 2. Découper en chunks
                 chunks = self.chunker.chunk_document(
@@ -188,7 +189,8 @@ class VectorStore:
         top_k: int = 5,
         similarity_threshold: float = 0.0,
         user_id: str = None,
-        organization_id: str = None
+        organization_id: str = None,
+        conversation_id: str = None
     ) -> List[Dict]:
         """
         Recherche les chunks les plus similaires à une requête
@@ -212,8 +214,37 @@ class VectorStore:
         
         with SessionLocal() as db:
             # Recherche par similarité cosine avec pgvector
-            # Filtre : documents publics de l'organisation OU documents personnels de l'utilisateur
-            search_query = text("""
+            # Stratégie :
+            # - Toujours inclure les documents globaux de l'organisation
+            # - Toujours inclure les documents personnels de l'utilisateur
+            # - Si conversation_id fourni, AJOUTER les documents de cette conversation
+            # Résultat : cherche dans (globaux + perso + conversation) simultanément
+            
+            where_conditions = []
+            
+            # Documents d'organisation (globaux) - toujours inclus si org_id fourni
+            if organization_id:
+                where_conditions.append("(d.scope = 'organization' AND d.organization_id = :org_id)")
+            
+            # Documents personnels de l'utilisateur - toujours inclus si user_id fourni
+            if user_id:
+                where_conditions.append("(d.scope = 'user' AND d.user_id = :user_id)")
+            
+            # Documents de conversation - AJOUTÉS en plus si conversation_id fourni
+            if conversation_id:
+                where_conditions.append("(d.conversation_id = :conversation_id)")
+            
+            # Si aucun filtre, chercher dans tous les documents (fallback)
+            if not where_conditions:
+                where_conditions.append("1=1")
+            
+            where_clause = " OR ".join(where_conditions)
+            
+            logger.info(f"  📊 Recherche dans: organization={bool(organization_id)}, user={bool(user_id)}, conversation={bool(conversation_id)}")
+            logger.info(f"  🔍 WHERE clause: {where_clause}")
+            logger.info(f"  🎯 Params: org_id={organization_id}, user_id={user_id}, conv_id={conversation_id}")
+            
+            search_query = text(f"""
                 SELECT 
                     dc.id,
                     dc.document_id,
@@ -226,20 +257,17 @@ class VectorStore:
                 FROM document_chunks dc
                 JOIN documents d ON dc.document_id = d.id
                 WHERE 1 - (dc.embedding <=> CAST(:query_embedding AS vector)) >= :threshold
-                  AND (
-                    (d.scope = 'organization' AND d.organization_id = :org_id)
-                    OR (d.scope = 'user' AND d.user_id = :user_id)
-                  )
+                AND ({where_clause})
                 ORDER BY dc.embedding <=> CAST(:query_embedding AS vector)
                 LIMIT :top_k
             """)
-            
             result = db.execute(search_query, {
                 "query_embedding": query_vector_str,
                 "threshold": similarity_threshold,
                 "top_k": top_k,
                 "org_id": organization_id,
-                "user_id": user_id
+                "user_id": user_id,
+                "conversation_id": conversation_id
             })
             
             results = []

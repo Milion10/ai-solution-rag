@@ -12,6 +12,13 @@ from pathlib import Path
 from ai.vector_store import get_vector_store
 
 logger = logging.getLogger(__name__)
+if not logger.hasHandlers():
+    import sys
+    handler = logging.StreamHandler(sys.stdout)
+    formatter = logging.Formatter('[%(asctime)s] %(levelname)s %(name)s: %(message)s')
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+logger.setLevel(logging.INFO)
 router = APIRouter()
 
 # Dossier temporaire pour stocker uploads
@@ -24,7 +31,8 @@ async def upload_document(
     file: UploadFile = File(...),
     auto_index: bool = Query(True, description="Automatically index document (chunking + embeddings)"),
     user_id: str = Query(None, description="User ID who owns this document"),
-    organization_id: str = Query(None, description="Organization ID for shared documents")
+    organization_id: str = Query(None, description="Organization ID for shared documents"),
+    conversation_id: str = Query(None, description="Conversation ID for private chat documents")
 ):
     """
     Upload et parse un document PDF
@@ -120,10 +128,9 @@ async def upload_document(
         if auto_index:
             try:
                 logger.info(f"🚀 Indexation automatique activée pour {file.filename}")
-                
+                logger.info(f"➡️ conversation_id={conversation_id}, user_id={user_id}, organization_id={organization_id}")
                 # Obtenir le VectorStore
                 vector_store = get_vector_store()
-                
                 # Stocker document + chunks + embeddings
                 document_id = vector_store.store_document(
                     filename=file.filename,
@@ -132,17 +139,15 @@ async def upload_document(
                     file_type="pdf",
                     file_size=file_size,
                     page_count=page_count,
-                    scope="organization" if organization_id else "user",
+                    scope="organization" if organization_id else ("user" if user_id else "conversation"),
                     user_id=user_id,
-                    organization_id=organization_id
+                    organization_id=organization_id,
+                    conversation_id=conversation_id
                 )
-                
+                logger.info(f"✅ Document {file.filename} indexé: {document_id} (conversation_id={conversation_id})")
                 response["indexed"] = True
                 response["document_id"] = document_id
                 response["message"] = f"Document uploadé et indexé avec succès ({page_count} pages)"
-                
-                logger.info(f"✅ Document {file.filename} indexé: {document_id}")
-            
             except Exception as e:
                 logger.error(f"❌ Erreur indexation: {e}")
                 response["indexed"] = False

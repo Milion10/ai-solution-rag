@@ -157,34 +157,34 @@ export default function ConversationSidebar({
               >
                 <MessageSquare className="h-4 w-4 flex-shrink-0 text-neutral-500" />
                 
-                <div 
-                  className="flex-1 min-w-0 cursor-pointer"
-                  onClick={() => onSelectConversation(conversation.id)}
-                >
-                  {renamingId === conversation.id ? (
-                    <input
-                      type="text"
-                      value={renameValue}
-                      onChange={(e) => setRenameValue(e.target.value)}
-                      onBlur={() => handleRenameConversation(conversation.id)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          handleRenameConversation(conversation.id)
-                        } else if (e.key === 'Escape') {
-                          setRenamingId(null)
-                          setRenameValue("")
-                        }
-                      }}
-                      autoFocus
-                      className="w-full px-2 py-1 text-sm font-medium bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-600 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                  ) : (
+                {renamingId === conversation.id ? (
+                  <input
+                    type="text"
+                    value={renameValue}
+                    onChange={(e) => setRenameValue(e.target.value)}
+                    onBlur={() => handleRenameConversation(conversation.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        handleRenameConversation(conversation.id)
+                      } else if (e.key === 'Escape') {
+                        setRenamingId(null)
+                        setRenameValue("")
+                      }
+                    }}
+                    autoFocus
+                    className="flex-1 min-w-0 px-2 py-1 text-sm font-medium bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-600 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                ) : (
+                  <div 
+                    className="flex-1 min-w-0 cursor-pointer"
+                    onClick={() => onSelectConversation(conversation.id)}
+                  >
                     <p className="text-sm font-medium truncate">
                       {conversation.title || 'Nouvelle conversation'}
                     </p>
-                  )}
-                </div>
+                  </div>
+                )}
 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>

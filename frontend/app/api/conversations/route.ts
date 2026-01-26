@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { conversation_id, user_message, assistant_message, sources } = body;
+    const { conversation_id, user_message, assistant_message, sources, attachments } = body;
 
     let conversation;
 
@@ -61,6 +61,7 @@ export async function POST(req: NextRequest) {
               {
                 role: 'user',
                 content: user_message,
+                attachments: attachments ? JSON.stringify(attachments) : null,
               },
               {
                 role: 'assistant',
@@ -91,6 +92,7 @@ export async function POST(req: NextRequest) {
               {
                 role: 'user',
                 content: user_message,
+                attachments: attachments ? JSON.stringify(attachments) : null,
               },
               {
                 role: 'assistant',

@@ -46,9 +46,12 @@ Write-Host ""
 Write-Host "Demarrage du Backend FastAPI..." -ForegroundColor Yellow
 Push-Location $BackendPath
 
+# Utiliser le venv global du projet (pas celui du backend)
+$VenvPath = Join-Path $ProjectRoot ".venv"
+
 # Verifier si le venv existe
-if (-not (Test-Path ".venv\Scripts\python.exe")) {
-    Write-Host "Environnement virtuel non trouve dans backend\.venv" -ForegroundColor Red
+if (-not (Test-Path "$VenvPath\Scripts\python.exe")) {
+    Write-Host "Environnement virtuel non trouve dans $VenvPath" -ForegroundColor Red
     Write-Host "   Veuillez creer un venv: python -m venv .venv" -ForegroundColor Red
     Pop-Location
     exit 1
@@ -56,7 +59,7 @@ if (-not (Test-Path ".venv\Scripts\python.exe")) {
 
 # Lancer le backend dans un nouveau terminal
 $backendCmd = @"
-`$env:PYTHONPATH='$BackendPath'; Set-Location '$BackendPath'; .\.venv\Scripts\Activate.ps1; Write-Host 'Backend FastAPI demarre sur http://127.0.0.1:8001' -ForegroundColor Green; python -m uvicorn main:app --reload --port 8001
+`$env:PYTHONPATH='$BackendPath'; Set-Location '$BackendPath'; & '$VenvPath\Scripts\Activate.ps1'; Write-Host 'Backend FastAPI demarre sur http://127.0.0.1:8001' -ForegroundColor Green; python -m uvicorn main:app --reload --port 8001
 "@
 
 Start-Process powershell -ArgumentList "-NoExit", "-Command", $backendCmd

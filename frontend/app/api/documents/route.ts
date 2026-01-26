@@ -15,6 +15,7 @@ export async function POST(req: NextRequest) {
     const formData = await req.formData()
     const file = formData.get('file') as File
     const isOrganizationDoc = formData.get('isOrganizationDoc') === 'true'
+    const conversationId = formData.get('conversationId') as string | null
     
     if (!file) {
       return NextResponse.json(
@@ -27,18 +28,25 @@ export async function POST(req: NextRequest) {
     const backendFormData = new FormData()
     backendFormData.append('file', file)
     
-    // Si document d'organisation, passer organization_id; sinon passer user_id
+    // Si document d'organisation, passer organization_id
+    // Si document de conversation, passer conversation_id
+    // Sinon passer user_id
     console.log('[UPLOAD] Session:', {
       userId: session.user.id,
       organizationId: session.user.organizationId,
       role: session.user.role,
-      isOrganizationDoc
+      isOrganizationDoc,
+      conversationId
     })
     
     // Construire l'URL avec les query parameters
     const url = new URL('http://localhost:8001/api/documents/upload')
     
-    if (isOrganizationDoc && session.user.organizationId) {
+    if (conversationId) {
+      // Document de conversation - priorité sur conversation_id
+      url.searchParams.append('conversation_id', conversationId)
+      console.log('[UPLOAD] Adding conversation_id to query:', conversationId)
+    } else if (isOrganizationDoc && session.user.organizationId) {
       url.searchParams.append('organization_id', session.user.organizationId)
       console.log('[UPLOAD] Adding organization_id to query:', session.user.organizationId)
     } else if (session.user.id) {
