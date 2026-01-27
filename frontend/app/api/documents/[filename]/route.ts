@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
+import { getApiUrl } from "@/lib/api"
 
 export async function DELETE(
   req: NextRequest,
@@ -27,7 +28,7 @@ export async function DELETE(
     }
     
     const response = await fetch(
-      `http://localhost:8001/api/documents/${filename}?${params_query.toString()}`,
+      getApiUrl(`/api/documents/${filename}?${params_query.toString()}`),
       { method: 'DELETE' }
     )
 
