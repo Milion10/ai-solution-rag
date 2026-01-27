@@ -99,8 +99,8 @@ class Settings(BaseSettings):
     
     # Embeddings
     embeddings_model: str = Field(
-        default="all-MiniLM-L6-v2",
-        description="Modèle sentence-transformers pour embeddings"
+        default="paraphrase-multilingual-MiniLM-L12-v2",
+        description="Modèle sentence-transformers pour embeddings (multilingue)"
     )
     
     # Legacy (pour compatibilité)

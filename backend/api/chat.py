@@ -27,7 +27,7 @@ class ChatRequest(BaseModel):
     organization_id: Optional[str] = Field(None, description="ID de l'organisation pour filtrer les documents")
     conversation_id: Optional[str] = Field(None, description="ID de la conversation pour documents privés")
     history: List[HistoryMessage] = Field(default=[], description="Historique des messages précédents")
-    top_k: int = Field(default=5, description="Nombre de chunks à récupérer", ge=1, le=20)
+    top_k: int = Field(default=10, description="Nombre de chunks à récupérer", ge=1, le=20)
     similarity_threshold: float = Field(default=0.3, description="Seuil de similarité (0-1)", ge=0.0, le=1.0)
     temperature: Optional[float] = Field(default=None, description="Température LLM (0-1)", ge=0.0, le=1.0)
     
@@ -89,8 +89,8 @@ async def chat(request: ChatRequest):
         logger.info(f"   📦 {len(chunks)} chunks trouvés")
         
         # Filtrer les chunks par seuil de similarité pour déterminer la pertinence
-        # Seuil à 0.4 (40%) : en dessous, la similarité est trop faible pour être pertinente
-        RELEVANCE_THRESHOLD = 0.4
+        # Seuil à 0.35 (35%) : en dessous, la similarité est trop faible pour être pertinente
+        RELEVANCE_THRESHOLD = 0.35
         relevant_chunks = [chunk for chunk in chunks if chunk['similarity'] >= RELEVANCE_THRESHOLD]
         
         # 2. Vérifier la disponibilité du LLM

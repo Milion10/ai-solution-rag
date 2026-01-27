@@ -16,14 +16,14 @@ class EmbeddingsGenerator:
     Génère des embeddings vectoriels à partir de texte
     """
     
-    def __init__(self, model_name: str = "all-MiniLM-L6-v2"):
+    def __init__(self, model_name: str = "paraphrase-multilingual-MiniLM-L12-v2"):
         """
         Initialise le générateur d'embeddings
         
         Args:
             model_name: Nom du modèle sentence-transformers
-                - all-MiniLM-L6-v2: 384 dims, léger, rapide (recommandé)
-                - paraphrase-multilingual-MiniLM-L12-v2: 384 dims, multilingue
+                - paraphrase-multilingual-MiniLM-L12-v2: 384 dims, multilingue (recommandé pour français)
+                - all-MiniLM-L6-v2: 384 dims, léger, rapide (anglais)
                 - all-mpnet-base-v2: 768 dims, plus précis mais plus lourd
         """
         self.model_name = model_name
@@ -123,7 +123,7 @@ def get_embeddings_generator() -> EmbeddingsGenerator:
             model_name = settings.embeddings_model
         except ImportError:
             # Fallback pour tests isolés
-            model_name = os.getenv("EMBEDDINGS_MODEL", "all-MiniLM-L6-v2")
+            model_name = os.getenv("EMBEDDINGS_MODEL", "paraphrase-multilingual-MiniLM-L12-v2")
         
         _embeddings_instance = EmbeddingsGenerator(model_name)
     return _embeddings_instance
