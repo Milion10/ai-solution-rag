@@ -246,7 +246,13 @@ export default function Chat({ userRole, onUploadComplete, conversationId, onCon
         console.log('[Chat] Upload terminé');
       }
 
-      // 2️⃣ ENVOYER LA QUESTION (avec le conversation_id)
+      // 2️⃣ ENVOYER LA QUESTION (avec le conversation_id et l'historique)
+      // Prendre les 6 derniers messages (3 échanges user/assistant) pour le contexte
+      const recentHistory = messages.slice(-6).map(msg => ({
+        role: msg.role,
+        content: msg.content
+      }));
+      
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: {
@@ -255,6 +261,7 @@ export default function Chat({ userRole, onUploadComplete, conversationId, onCon
         body: JSON.stringify({
           question: userMessage.content,
           conversation_id: uploadConvId,
+          history: recentHistory,
         }),
       });
 

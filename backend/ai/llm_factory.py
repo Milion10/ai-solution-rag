@@ -32,12 +32,13 @@ class BaseLLMProvider:
         self,
         query: str,
         context_chunks: list,
-        max_context_length: int = 3000
+        max_context_length: int = 3000,
+        conversation_history: list = None
     ) -> Dict:
         """Génère une réponse RAG"""
         raise NotImplementedError
     
-    def generate_general_response(self, query: str) -> Dict:
+    def generate_general_response(self, query: str, conversation_history: list = None) -> Dict:
         """Génère une réponse générale sans contexte"""
         raise NotImplementedError
 
@@ -137,7 +138,8 @@ class GroqProvider(BaseLLMProvider):
         self,
         query: str,
         context_chunks: list,
-        max_context_length: int = 3000
+        max_context_length: int = 3000,
+        conversation_history: list = None
     ) -> Dict:
         """
         Génère une réponse RAG avec Groq
@@ -163,7 +165,19 @@ class GroqProvider(BaseLLMProvider):
         
         context = "\n---\n".join(context_parts)
         
-        # 2. Prompt RAG
+        # 2. Construire l'historique si disponible
+        history_text = ""
+        if conversation_history:
+            history_lines = []
+            for msg in conversation_history:
+                # Supporter à la fois dict et objet Pydantic
+                role = msg.role if hasattr(msg, 'role') else msg.get("role")
+                content = msg.content if hasattr(msg, 'content') else msg.get('content', '')
+                role_label = "Utilisateur" if role == "user" else "Assistant"
+                history_lines.append(f"{role_label}: {content}")
+            history_text = "\n".join(history_lines)
+        
+        # 3. Prompt RAG
         system_prompt = """Tu es un assistant IA expert qui répond aux questions en te basant UNIQUEMENT sur le contexte fourni.
 
 Règles importantes:
@@ -171,9 +185,22 @@ Règles importantes:
 - Si l'information n'est pas dans le contexte, dis "Je n'ai pas cette information dans les documents fournis"
 - Cite toujours tes sources en mentionnant le document utilisé
 - Sois précis, concis et structuré dans tes réponses
-- Utilise un ton professionnel mais accessible"""
+- Utilise un ton professionnel mais accessible
+- Utilise l'historique de la conversation pour comprendre le contexte des questions de suivi"""
 
-        user_prompt = f"""Contexte (documents de l'entreprise):
+        if history_text:
+            user_prompt = f"""Historique de la conversation:
+{history_text}
+
+Contexte (documents de l'entreprise):
+{context}
+
+Question de l'utilisateur:
+{query}
+
+Réponds à la question en tenant compte de l'historique de conversation et du contexte fourni. Structure ta réponse clairement et cite tes sources."""
+        else:
+            user_prompt = f"""Contexte (documents de l'entreprise):
 {context}
 
 Question de l'utilisateur:
@@ -181,7 +208,7 @@ Question de l'utilisateur:
 
 Réponds à la question en te basant sur le contexte ci-dessus. Structure ta réponse clairement et cite tes sources."""
 
-        # 3. Générer la réponse
+        # 4. Générer la réponse
         try:
             answer = self.generate(
                 prompt=user_prompt,
@@ -212,8 +239,20 @@ Réponds à la question en te basant sur le contexte ci-dessus. Structure ta ré
                 "context_used": 0
             }
     
-    def generate_general_response(self, query: str) -> Dict:
+    def generate_general_response(self, query: str, conversation_history: list = None) -> Dict:
         """Génère une réponse générale avec Groq"""
+        # Construire l'historique si disponible
+        history_text = ""
+        if conversation_history:
+            history_lines = []
+            for msg in conversation_history:
+                # Supporter à la fois dict et objet Pydantic
+                role = msg.role if hasattr(msg, 'role') else msg.get("role")
+                content = msg.content if hasattr(msg, 'content') else msg.get('content', '')
+                role_label = "Utilisateur" if role == "user" else "Assistant"
+                history_lines.append(f"{role_label}: {content}")
+            history_text = "\n".join(history_lines)
+        
         system_prompt = """Tu es un assistant IA intelligent et serviable.
 
 Règles importantes:
@@ -222,9 +261,19 @@ Règles importantes:
   explique clairement que tu n'as pas accès à ces données
 - Si tu n'es pas sûr d'une information, dis-le honnêtement
 - Sois précis, concis et structuré dans tes réponses
-- Utilise un ton professionnel mais accessible"""
+- Utilise un ton professionnel mais accessible
+- Utilise l'historique de la conversation pour comprendre le contexte des questions de suivi"""
 
-        user_prompt = f"""Question:
+        if history_text:
+            user_prompt = f"""Historique de la conversation:
+{history_text}
+
+Question:
+{query}
+
+Réponds à cette question en tenant compte de l'historique de conversation et avec ta connaissance générale."""
+        else:
+            user_prompt = f"""Question:
 {query}
 
 Réponds à cette question avec ta connaissance générale."""

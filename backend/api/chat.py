@@ -13,6 +13,12 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+class HistoryMessage(BaseModel):
+    """Message de l'historique de conversation"""
+    role: str = Field(description="Rôle: 'user' ou 'assistant'")
+    content: str = Field(description="Contenu du message")
+
+
 class ChatRequest(BaseModel):
     """Requête de chat"""
     query: str = Field(None, description="Question de l'utilisateur (deprecated, use 'question')", min_length=1)
@@ -20,6 +26,7 @@ class ChatRequest(BaseModel):
     user_id: Optional[str] = Field(None, description="ID de l'utilisateur pour filtrer les documents")
     organization_id: Optional[str] = Field(None, description="ID de l'organisation pour filtrer les documents")
     conversation_id: Optional[str] = Field(None, description="ID de la conversation pour documents privés")
+    history: List[HistoryMessage] = Field(default=[], description="Historique des messages précédents")
     top_k: int = Field(default=5, description="Nombre de chunks à récupérer", ge=1, le=20)
     similarity_threshold: float = Field(default=0.3, description="Seuil de similarité (0-1)", ge=0.0, le=1.0)
     temperature: Optional[float] = Field(default=None, description="Température LLM (0-1)", ge=0.0, le=1.0)
@@ -98,20 +105,24 @@ async def chat(request: ChatRequest):
         if relevant_chunks:
             # MODE RAG : Documents pertinents trouvés
             logger.info(f"  📚 Mode RAG - {len(relevant_chunks)} chunks pertinents (score > {RELEVANCE_THRESHOLD})")
+            logger.info(f"  💬 Historique: {len(request.history)} messages")
             
             rag_result = llm.generate_rag_response(
                 query=request.user_query,
                 context_chunks=relevant_chunks,
-                max_context_length=3000
+                max_context_length=3000,
+                conversation_history=request.history
             )
             
         else:
             # MODE GÉNÉRAL : Pas de documents pertinents, utiliser la connaissance du modèle
             logger.info(f"  🧠 Mode Général - Aucun document pertinent (seuil: {RELEVANCE_THRESHOLD})")
+            logger.info(f"  💬 Historique: {len(request.history)} messages")
             
             # Générer une réponse avec la connaissance générale du modèle
             rag_result = llm.generate_general_response(
-                query=request.user_query
+                query=request.user_query,
+                conversation_history=request.history
             )
         
         logger.info(f"  ✅ Réponse générée (confidence: {rag_result.get('confidence', 100)}%)")

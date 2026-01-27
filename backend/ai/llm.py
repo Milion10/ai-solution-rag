@@ -141,7 +141,8 @@ class LLMGenerator:
         self,
         query: str,
         context_chunks: List[Dict],
-        max_context_length: int = 3000
+        max_context_length: int = 3000,
+        conversation_history: List[Dict] = None
     ) -> Dict:
         """
         Génère une réponse RAG (Retrieval Augmented Generation)
@@ -150,6 +151,7 @@ class LLMGenerator:
             query: Question utilisateur
             context_chunks: Chunks récupérés de la recherche vectorielle
             max_context_length: Longueur max du contexte (en caractères)
+            conversation_history: Historique des messages précédents
         
         Returns:
             Dict avec 'answer', 'sources', 'confidence'
@@ -175,7 +177,19 @@ class LLMGenerator:
         
         context = "\n---\n".join(context_parts)
         
-        # 2. Construire le prompt RAG
+        # 2. Construire l'historique de conversation si disponible
+        history_text = ""
+        if conversation_history:
+            history_lines = []
+            for msg in conversation_history:
+                # Supporter à la fois dict et objet Pydantic
+                role = msg.role if hasattr(msg, 'role') else msg.get("role")
+                content = msg.content if hasattr(msg, 'content') else msg.get('content', '')
+                role_label = "Utilisateur" if role == "user" else "Assistant"
+                history_lines.append(f"{role_label}: {content}")
+            history_text = "\n".join(history_lines)
+        
+        # 3. Construire le prompt RAG
         system_prompt = """Tu es un assistant IA expert qui répond aux questions en te basant UNIQUEMENT sur le contexte fourni.
 
 Règles importantes:
@@ -183,9 +197,22 @@ Règles importantes:
 - Si l'information n'est pas dans le contexte, dis "Je n'ai pas cette information dans les documents fournis"
 - Cite toujours tes sources en mentionnant le document utilisé
 - Sois précis, concis et structuré dans tes réponses
-- Utilise un ton professionnel mais accessible"""
+- Utilise un ton professionnel mais accessible
+- Utilise l'historique de la conversation pour comprendre le contexte des questions de suivi"""
 
-        user_prompt = f"""Contexte (documents de l'entreprise):
+        if history_text:
+            user_prompt = f"""Historique de la conversation:
+{history_text}
+
+Contexte (documents de l'entreprise):
+{context}
+
+Question de l'utilisateur:
+{query}
+
+Réponds à la question en tenant compte de l'historique de conversation et du contexte fourni. Structure ta réponse clairement et cite tes sources."""
+        else:
+            user_prompt = f"""Contexte (documents de l'entreprise):
 {context}
 
 Question de l'utilisateur:
@@ -193,7 +220,7 @@ Question de l'utilisateur:
 
 Réponds à la question en te basant sur le contexte ci-dessus. Structure ta réponse clairement et cite tes sources."""
 
-        # 3. Générer la réponse
+        # 4. Générer la réponse
         try:
             answer = self.generate(
                 prompt=user_prompt,
@@ -201,7 +228,7 @@ Réponds à la question en te basant sur le contexte ci-dessus. Structure ta ré
                 temperature=0.3  # Faible température pour réponses factuelles
             )
             
-            # 4. Estimer la confiance basée sur les scores de similarité
+            # 5. Estimer la confiance basée sur les scores de similarité
             if context_chunks:
                 avg_similarity = sum(c["similarity"] for c in context_chunks[:3]) / min(3, len(context_chunks))
                 confidence = min(avg_similarity * 100, 95)  # Cap à 95%
@@ -227,7 +254,8 @@ Réponds à la question en te basant sur le contexte ci-dessus. Structure ta ré
     
     def generate_general_response(
         self,
-        query: str
+        query: str,
+        conversation_history: List[Dict] = None
     ) -> Dict:
         """
         Génère une réponse avec la connaissance générale du modèle (sans RAG)
@@ -235,10 +263,23 @@ Réponds à la question en te basant sur le contexte ci-dessus. Structure ta ré
         
         Args:
             query: Question utilisateur
+            conversation_history: Historique des messages précédents
         
         Returns:
             Dict avec 'answer', 'sources', 'confidence'
         """
+        # Construire l'historique si disponible
+        history_text = ""
+        if conversation_history:
+            history_lines = []
+            for msg in conversation_history:
+                # Supporter à la fois dict et objet Pydantic
+                role = msg.role if hasattr(msg, 'role') else msg.get("role")
+                content = msg.content if hasattr(msg, 'content') else msg.get('content', '')
+                role_label = "Utilisateur" if role == "user" else "Assistant"
+                history_lines.append(f"{role_label}: {content}")
+            history_text = "\n".join(history_lines)
+        
         system_prompt = """Tu es un assistant IA intelligent et serviable.
 
 Règles importantes:
@@ -247,9 +288,19 @@ Règles importantes:
   explique clairement que tu n'as pas accès à ces données
 - Si tu n'es pas sûr d'une information, dis-le honnêtement
 - Sois précis, concis et structuré dans tes réponses
-- Utilise un ton professionnel mais accessible"""
+- Utilise un ton professionnel mais accessible
+- Utilise l'historique de la conversation pour comprendre le contexte des questions de suivi"""
 
-        user_prompt = f"""Question:
+        if history_text:
+            user_prompt = f"""Historique de la conversation:
+{history_text}
+
+Question:
+{query}
+
+Réponds à cette question en tenant compte de l'historique de conversation et avec ta connaissance générale."""
+        else:
+            user_prompt = f"""Question:
 {query}
 
 Réponds à cette question avec ta connaissance générale."""

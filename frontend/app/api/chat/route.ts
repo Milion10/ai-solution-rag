@@ -14,14 +14,14 @@ export async function POST(req: NextRequest) {
     }
 
 
-    const { question, conversation_id } = await req.json()
+    const { question, conversation_id, history } = await req.json()
     if (!question) {
       return NextResponse.json(
         { error: "Question manquante" },
         { status: 400 }
       )
     }
-    // Forward to Python backend with user_id, organization_id, conversation_id
+    // Forward to Python backend with user_id, organization_id, conversation_id, et historique
     const response = await fetch(getApiUrl('/api/chat'), {
       method: 'POST',
       headers: {
@@ -32,6 +32,7 @@ export async function POST(req: NextRequest) {
         user_id: session.user.id,
         organization_id: session.user.organizationId,
         conversation_id,
+        history: history || [],
       }),
     })
 
