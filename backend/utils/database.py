@@ -4,13 +4,17 @@ Connexion et gestion de la base de données PostgreSQL
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-import os
-from dotenv import load_dotenv
 
-load_dotenv()
-
-# URL connexion PostgreSQL
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://ai_user:change-me-in-production@localhost:5432/ai_solution")
+# Import configuration centralisée
+try:
+    from config import settings
+    DATABASE_URL = settings.database_url
+except ImportError:
+    # Fallback si config.py pas trouvé (tests isolés)
+    import os
+    from dotenv import load_dotenv
+    load_dotenv()
+    DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://ai_user:change-me-in-production@localhost:5432/ai_solution")
 
 # Créer engine SQLAlchemy
 engine = create_engine(

@@ -6,7 +6,7 @@ import json
 
 def test_chat_endpoint():
     """Teste l'endpoint /api/chat"""
-    url = "http://localhost:8001/api/chat"
+    url = "http://localhost:8000/api/chat"
     
     payload = {
         "question": "Bonjour, comment vas-tu ?",

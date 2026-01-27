@@ -260,29 +260,44 @@ def get_llm_provider() -> BaseLLMProvider:
     Returns:
         Instance du provider (Ollama ou Groq)
     """
-    provider_type = os.getenv("LLM_PROVIDER", "ollama").lower()
+    # Utiliser config centralisée
+    try:
+        from config import settings
+        provider_type = settings.llm_provider
+    except ImportError:
+        # Fallback pour tests isolés
+        provider_type = os.getenv("LLM_PROVIDER", "ollama").lower()
     
     if provider_type == "groq":
-        api_key = os.getenv("GROQ_API_KEY")
+        try:
+            from config import settings
+            api_key = settings.groq_api_key
+            model = settings.groq_model
+        except ImportError:
+            api_key = os.getenv("GROQ_API_KEY")
+            model = os.getenv("GROQ_MODEL", "mixtral-8x7b-32768")
+        
         if not api_key:
             raise ValueError(
                 "GROQ_API_KEY manquante dans .env. "
                 "Obtenez une clé sur: https://console.groq.com"
             )
         
-        model = os.getenv("GROQ_MODEL", "mixtral-8x7b-32768")
         logger.info(f"🚀 Utilisation de Groq ({model})")
-        
         return GroqProvider(api_key=api_key, model=model)
     
     else:  # ollama par défaut
         from ai.llm import LLMGenerator
         
-        base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-        model = os.getenv("OLLAMA_MODEL")
+        try:
+            from config import settings
+            base_url = settings.ollama_base_url
+            model = settings.ollama_model
+        except ImportError:
+            base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+            model = os.getenv("OLLAMA_MODEL")
         
         logger.info(f"🏠 Utilisation d'Ollama local ({base_url})")
-        
         return LLMGenerator(base_url=base_url, model=model)
 
 

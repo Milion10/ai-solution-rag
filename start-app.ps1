@@ -59,7 +59,7 @@ if (-not (Test-Path "$VenvPath\Scripts\python.exe")) {
 
 # Lancer le backend dans un nouveau terminal
 $backendCmd = @"
-`$env:PYTHONPATH='$BackendPath'; Set-Location '$BackendPath'; & '$VenvPath\Scripts\Activate.ps1'; Write-Host 'Backend FastAPI demarre sur http://127.0.0.1:8001' -ForegroundColor Green; python -m uvicorn main:app --reload --port 8001
+`$env:PYTHONPATH='$BackendPath'; Set-Location '$BackendPath'; & '$VenvPath\Scripts\Activate.ps1'; Write-Host 'Backend FastAPI demarre sur http://127.0.0.1:8000' -ForegroundColor Green; python -m uvicorn main:app --reload --port 8000
 "@
 
 Start-Process powershell -ArgumentList "-NoExit", "-Command", $backendCmd
@@ -100,8 +100,8 @@ Write-Host "Application demarree avec succes !" -ForegroundColor Green
 Write-Host ""
 Write-Host "URLs:" -ForegroundColor Cyan
 Write-Host "   Frontend: http://localhost:3000" -ForegroundColor White
-Write-Host "   Backend:  http://localhost:8001" -ForegroundColor White
-Write-Host "   API Docs: http://localhost:8001/docs" -ForegroundColor White
+Write-Host "   Backend:  http://localhost:8000" -ForegroundColor White
+Write-Host "   API Docs: http://localhost:8000/docs" -ForegroundColor White
 Write-Host "   MinIO:    http://localhost:9001 (minioadmin/minioadmin)" -ForegroundColor White
 Write-Host ""
 Write-Host "Pour arreter l'application, fermez les terminaux et executez:" -ForegroundColor Yellow

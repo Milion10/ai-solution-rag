@@ -23,7 +23,7 @@ def test_upload():
     print(f"\n📄 Upload du fichier: {test_file}")
     
     # Simuler un upload
-    url = "http://localhost:8001/api/documents/upload"
+    url = "http://localhost:8000/api/documents/upload"
     
     with open(test_file, 'rb') as f:
         files = {'file': (os.path.basename(test_file), f, 'application/pdf')}

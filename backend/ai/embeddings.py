@@ -117,7 +117,14 @@ def get_embeddings_generator() -> EmbeddingsGenerator:
     """Retourne l'instance singleton du générateur d'embeddings"""
     global _embeddings_instance
     if _embeddings_instance is None:
-        model_name = os.getenv("EMBEDDINGS_MODEL", "all-MiniLM-L6-v2")
+        # Utiliser config centralisée
+        try:
+            from config import settings
+            model_name = settings.embeddings_model
+        except ImportError:
+            # Fallback pour tests isolés
+            model_name = os.getenv("EMBEDDINGS_MODEL", "all-MiniLM-L6-v2")
+        
         _embeddings_instance = EmbeddingsGenerator(model_name)
     return _embeddings_instance
 

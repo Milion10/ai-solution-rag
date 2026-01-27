@@ -73,8 +73,8 @@ npm install
 | Service | URL | Description |
 |---------|-----|-------------|
 | **Frontend** | http://localhost:3000 | Interface utilisateur |
-| **Backend** | http://localhost:8001 | API REST |
-| **API Docs** | http://localhost:8001/docs | Documentation Swagger |
+| **Backend** | http://localhost:8000 | API REST |
+| **API Docs** | http://localhost:8000/docs | Documentation Swagger |
 | **MinIO** | http://localhost:9001 | Stockage fichiers (minioadmin/minioadmin) |
 | **PostgreSQL** | localhost:5432 | Base de données |
 | **Redis** | localhost:6379 | Cache |
@@ -111,8 +111,8 @@ Si un service ne démarre pas (port occupé), trouvez le processus :
 ```powershell
 # Port 3000 (frontend)
 netstat -ano | findstr :3000
-# Port 8001 (backend)
-netstat -ano | findstr :8001
+# Port 8000 (backend)
+netstat -ano | findstr :8000
 # Port 5432 (PostgreSQL)
 netstat -ano | findstr :5432
 ```

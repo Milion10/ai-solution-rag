@@ -7,9 +7,19 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import logging
 
-# Configuration logging
-logging.basicConfig(level=logging.INFO)
+# Import de la configuration centralisée
+from config import settings
+
+# Configuration logging avec niveau depuis config
+logging.basicConfig(
+    level=settings.get_log_level(),
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
+
+# Afficher résumé de configuration au démarrage
+if settings.debug:
+    settings.display_config_summary()
 
 # Initialisation FastAPI
 app = FastAPI(
@@ -17,13 +27,14 @@ app = FastAPI(
     description="API REST pour solution IA conversationnelle on-premise",
     version="0.1.0-poc",
     docs_url="/docs",
-    redoc_url="/redoc"
+    redoc_url="/redoc",
+    debug=settings.debug
 )
 
-# Configuration CORS (pour développement)
+# Configuration CORS avec origines depuis config
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # Frontend Next.js
+    allow_origins=settings.get_cors_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -60,10 +71,13 @@ app.include_router(chat.router, prefix="/api", tags=["Chat"])
 
 if __name__ == "__main__":
     import uvicorn
+    
+    logger.info(f"🚀 Démarrage serveur sur {settings.host}:{settings.port}")
+    
     uvicorn.run(
         "main:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=True,
-        log_level="info"
+        host=settings.host,
+        port=settings.port,
+        reload=settings.debug,
+        log_level=settings.log_level.lower()
     )

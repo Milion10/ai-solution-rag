@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
+import { getApiUrl } from "@/lib/api"
 
 export async function POST(req: NextRequest) {
   try {
@@ -40,7 +41,7 @@ export async function POST(req: NextRequest) {
     })
     
     // Construire l'URL avec les query parameters
-    const url = new URL('http://localhost:8001/api/documents/upload')
+    const url = new URL(getApiUrl('/api/documents/upload'))
     
     if (conversationId) {
       // Document de conversation - priorité sur conversation_id
@@ -103,7 +104,7 @@ export async function GET() {
     console.log('[GET DOCS] Query params:', params.toString())
     
     const response = await fetch(
-      `http://localhost:8001/api/documents/documents?${params.toString()}`
+      getApiUrl(`/api/documents/documents?${params.toString()}`)
     )
 
     const data = await response.json()
